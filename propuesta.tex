@@ -1,0 +1,601 @@
+\documentclass[11pt,a4paper]{article}
+
+% ------------------------------------------------------------
+% Packages
+% ------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{parskip}
+\usepackage{microtype}
+\usepackage{tikz}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{caption}
+
+\usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric,backgrounds,babel}
+
+\geometry{margin=2.1cm, top=2.85cm, bottom=2.4cm, headheight=34pt}
+
+\definecolor{livetixblue}{HTML}{173B57}
+\definecolor{livetixaccent}{HTML}{C45C26}
+\definecolor{livetixlight}{HTML}{EEF4F8}
+\definecolor{livetixgray}{HTML}{5B6570}
+\definecolor{livetixline}{HTML}{C5D0D8}
+\definecolor{livetixok}{HTML}{2D6A4F}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=livetixblue,
+    urlcolor=livetixblue,
+    pdftitle={LiveTix --- Propuesta de Arquitectura},
+    pdfauthor={Rolando Palermo Rodríguez Cruz}
+}
+
+\titleformat{\section}
+  {\Large\bfseries\color{livetixblue}}
+  {\thesection.}{0.7em}{}
+  [\color{livetixblue}\titlerule]
+\titleformat{\subsection}
+  {\large\bfseries\color{livetixblue}}
+  {\thesubsection.}{0.6em}{}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{livetixblue}}
+  {\thesubsubsection.}{0.5em}{}
+
+\captionsetup{font=small, labelfont={bf,color=livetixblue}, skip=6pt}
+
+\setlist[itemize]{leftmargin=*, itemsep=2pt, topsep=3pt}
+\setlist[enumerate]{leftmargin=*, itemsep=2pt, topsep=3pt}
+
+\newcommand{\sectionintro}[1]{\vspace{-0.15em}\textit{\textcolor{livetixgray}{#1}}\par\vspace{0.45em}}
+\newcommand{\decision}[2]{\textbf{#1.} #2}
+
+% Logo vectorial (ticket + wordmark). Si existe livetix-logo.png, se usa esa imagen.
+\newcommand{\LiveTixLogoTikZ}{%
+\begin{tikzpicture}[x=1mm, y=1mm, baseline=-1.1mm]
+  \fill[livetixblue, rounded corners=1.4]
+    (0,0) -- (28.6,0) -- (28.6,8.6) -- (0,8.6) -- cycle;
+  \fill[white] (0,4.3) circle (1.35);
+  \fill[white] (28.6,4.3) circle (1.35);
+  \foreach \y in {1.3,2.6,3.9,5.2,6.5,7.8}
+    \fill[white] (5.4,\y) circle (0.28);
+  \node[white, font=\bfseries\sffamily, anchor=west, inner sep=0]
+    at (7.0,4.35) {\fontsize{6.4}{7.4}\selectfont LiveTix};
+\end{tikzpicture}%
+}
+\newcommand{\LiveTixLogo}[1][0.78cm]{%
+  \IfFileExists{livetix-logo.png}{%
+    \includegraphics[height=#1]{livetix-logo.png}%
+  }{%
+    \raisebox{-0.12cm}{\resizebox{!}{#1}{\LiveTixLogoTikZ}}%
+  }%
+}
+
+\tikzset{
+  lt/box/.style={
+    draw=livetixblue, fill=livetixlight, rounded corners=2pt,
+    align=center, inner sep=3.4pt, font=\sffamily\scriptsize, minimum height=7.2mm
+  },
+  lt/dark/.style={
+    draw=livetixblue, fill=livetixblue, text=white, rounded corners=2pt,
+    align=center, inner sep=3.4pt, font=\sffamily\scriptsize\bfseries, minimum height=7.2mm
+  },
+  lt/accent/.style={
+    draw=livetixaccent, fill=livetixaccent, text=white, rounded corners=2pt,
+    align=center, inner sep=3.4pt, font=\sffamily\scriptsize\bfseries, minimum height=7.2mm
+  },
+  lt/region/.style={
+    draw=livetixblue, fill=white, rounded corners=3pt, inner sep=5pt,
+    font=\sffamily\scriptsize
+  },
+  lt/arr/.style={-{Stealth[length=4.2pt]}, livetixblue, thick},
+  lt/arrd/.style={-{Stealth[length=4.2pt]}, livetixgray, thick}
+}
+
+% ------------------------------------------------------------
+% Header / Footer
+% ------------------------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{%
+  \parbox[c][0.78cm][c]{0.78\textwidth}{%
+    \raggedright\sffamily\footnotesize\bfseries\color{livetixblue}%
+    LiveTix --- Plataforma global de venta de boletos para eventos en vivo%
+  }%
+}
+\fancyhead[R]{\LiveTixLogo[0.78cm]}
+\fancyfoot[L]{\sffamily\scriptsize\textcolor{livetixgray}{Propuesta de arquitectura}}
+\fancyfoot[R]{\sffamily\scriptsize\textcolor{livetixgray}{\thepage}}
+\renewcommand{\headrulewidth}{0.6pt}
+\renewcommand{\footrulewidth}{0.3pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{livetixblue}\leaders\hrule height \headrulewidth\hfill}}
+\renewcommand{\footrule}{\hbox to\headwidth{\color{livetixline}\leaders\hrule height \footrulewidth\hfill}}
+
+\begin{document}
+
+% ------------------------------------------------------------
+% Title
+% ------------------------------------------------------------
+\pagenumbering{Alph}
+\begin{titlepage}
+    \thispagestyle{empty}
+    \noindent
+    \begin{tikzpicture}
+      \fill[livetixblue] (0,0) rectangle (\textwidth, 0.18cm);
+    \end{tikzpicture}
+
+    \vspace*{1.8cm}
+    \begin{flushright}
+        \LiveTixLogo[1.15cm]
+    \end{flushright}
+
+    \vspace{1.6cm}
+    {\Huge\bfseries\sffamily\textcolor{livetixblue}{Propuesta de Arquitectura}}\\[0.45cm]
+    {\Large\sffamily Plataforma global de venta de boletos para eventos en vivo}\\[1.0cm]
+    {\color{livetixaccent}\rule{4.2cm}{2.4pt}}\\[0.7cm]
+    {\large\sffamily System Design Challenge --- Cloud Engineer Senior}
+
+    \vfill
+    \begin{tabular}{@{}ll}
+        \textbf{Autor} & Rolando Palermo Rodríguez Cruz \\
+        \textbf{Fecha} & 06 de septiembre de 2026 \\
+        \textbf{Versión} & 1.0 \\
+        \textbf{Clasificación} & Propuesta técnica \\
+    \end{tabular}
+
+    \vspace{1.4cm}
+    \noindent
+    \begin{tikzpicture}
+      \fill[livetixblue] (0,0) rectangle (\textwidth, 0.18cm);
+    \end{tikzpicture}
+\end{titlepage}
+
+\clearpage
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ------------------------------------------------------------
+% Change control
+% ------------------------------------------------------------
+\section*{Control de cambios}
+\addcontentsline{toc}{section}{Control de cambios}
+
+\renewcommand{\arraystretch}{1.4}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.4cm}
+                             >{\centering\arraybackslash}p{2.6cm}
+                             >{\raggedright\arraybackslash}X}
+\rowcolor{livetixblue}
+\textcolor{white}{\textbf{Autor}} &
+\textcolor{white}{\textbf{Fecha}} &
+\textcolor{white}{\textbf{Descripción}} \\
+Rolando Palermo Rodríguez Cruz & 06/09/2026 &
+Versión inicial de la propuesta: arquitectura global, decisiones técnicas e infraestructura como código / CI/CD. \\
+\end{tabularx}
+\renewcommand{\arraystretch}{1.0}
+
+\vspace{1.1cm}
+\tableofcontents
+\clearpage
+
+% ============================================================
+\section{Diagrama de arquitectura}
+% ============================================================
+
+\sectionintro{La arquitectura está pensada para operar en cuatro países, absorber picos de 10 a 20 veces el tráfico habitual y proteger dos invariantes: no vender dos veces el mismo asiento y no capturar un pago sin boleto.}
+
+\subsection{Contexto y alcance}
+
+LiveTix opera en México, Estados Unidos, España y Japón. La propuesta usa tres regiones de AWS:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{lll}
+\toprule
+\textbf{Región AWS} & \textbf{Mercados} \\
+\midrule
+\texttt{us-east-1} & México y Estados Unidos \\
+\texttt{eu-west-1} & España \\
+\texttt{ap-northeast-1} & Japón \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+    \item La capa global \textit{Route~53} +  \textit{CloudFront} +  \textit{WAF} es única.
+    \item Los servicios de aplicación y los datos transaccionales se despliegan por región.
+    \item Cada evento tiene una \textit{home region}.
+    \item Las lecturas no críticas (catálogo de eventos, información del evento, imágenes/banners, recomendaciones, etc.) pueden resolverse cerca del usuario.
+    \item La reserva y la venta de asientos siempre se escriben en la región propietaria del evento.
+\end{itemize}
+
+\subsection{Arquitectura lógica}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+  % --- Usuarios (grupo) ---
+  \draw[livetixblue, fill=livetixlight, rounded corners=3pt]
+    (0,11.15) rectangle (15.2,13.05);
+  \node[font=\sffamily\bfseries\color{livetixblue}] at (7.6,12.78) {Usuarios};
+  \node[lt/box, minimum width=4.2cm, fill=white] (amer) at (2.6,11.75) {AMER};
+  \node[lt/box, minimum width=4.2cm, fill=white] (emea) at (7.6,11.75) {EMEA};
+  \node[lt/box, minimum width=4.2cm, fill=white] (apac) at (12.6,11.75) {APAC};
+
+  % --- Borde global (grupo) ---
+  \draw[livetixblue, fill=white, rounded corners=3pt]
+    (0,8.35) rectangle (15.2,10.35);
+  \node[font=\sffamily\bfseries\color{livetixblue}] at (7.6,10.08) {Borde global};
+  \node[lt/box, minimum width=4.2cm] (cf) at (2.6,9.05) {CloudFront\\CDN};
+  \node[lt/box, minimum width=4.2cm] (r53) at (7.6,9.05) {Route 53\\DNS global};
+  \node[lt/box, minimum width=4.2cm] (waf) at (12.6,9.05) {AWS WAF\\per\'imetro};
+
+  \node[lt/accent, minimum width=15.0cm, minimum height=0.85cm] (wr) at (7.6,7.35)
+    {Waiting Room / Admission Control};
+
+  \node[lt/region, minimum width=4.6cm] (us) at (2.6,4.55) {%
+    \begin{tabular}{@{}c@{}}
+      \textbf{\textcolor{livetixblue}{us-east-1}}\\[1pt]
+      {\scriptsize home MX / US}\\[3pt]
+      Catalog · Checkout\\
+      Inventory · Ticket\\[2pt]
+      ECS / Fargate Multi-AZ\\[2pt]
+      Aurora PostgreSQL (SoT)\\
+      Redis · SQS · S3
+    \end{tabular}
+  };
+  \node[lt/region, minimum width=4.6cm] (eu) at (7.6,4.55) {%
+    \begin{tabular}{@{}c@{}}
+      \textbf{\textcolor{livetixblue}{eu-west-1}}\\[1pt]
+      {\scriptsize home ES}\\[3pt]
+      Catalog · Checkout\\
+      Inventory · Ticket\\[2pt]
+      ECS / Fargate Multi-AZ\\[2pt]
+      Aurora PostgreSQL (SoT)\\
+      Redis · SQS · S3
+    \end{tabular}
+  };
+  \node[lt/region, minimum width=4.6cm] (ap) at (12.6,4.55) {%
+    \begin{tabular}{@{}c@{}}
+      \textbf{\textcolor{livetixblue}{ap-northeast-1}}\\[1pt]
+      {\scriptsize home JP}\\[3pt]
+      Catalog · Checkout\\
+      Inventory · Ticket\\[2pt]
+      ECS / Fargate Multi-AZ\\[2pt]
+      Aurora PostgreSQL (SoT)\\
+      Redis · SQS · S3
+    \end{tabular}
+  };
+
+  \node[lt/box, minimum width=15.0cm] (ops) at (7.6,1.85) {%
+    Secrets Manager / KMS \quad·\quad CloudWatch \quad·\quad IAM \quad·\quad ECR
+  };
+
+  \draw[lt/arr] (emea.south) -- (r53.north);
+  \draw[lt/arr] (r53.south) -- (wr.north);
+  \draw[lt/arr] (wr.south) -- ++(0,-0.28) -| (us.north);
+  \draw[lt/arr] (wr.south) -- (eu.north);
+  \draw[lt/arr] (wr.south) -- ++(0,-0.28) -| (ap.north);
+\end{tikzpicture}%
+}
+\caption{Arquitectura global de LiveTix: borde único, control de admisión y tres regiones con fuente de verdad local.}
+\end{figure}
+
+\subsection{Componentes principales}
+
+\begin{itemize}
+    \item \textbf{Route 53:} DNS y enrutamiento de entrada. Puede dirigir al borde global y, cuando aplica, a la \textit{home region} del evento.
+    \item \textbf{CloudFront:} reduce latencia de catálogo, asientos estáticos y assets. Absorbe una parte del flash crowd antes de llegar a origen.
+    \item \textbf{AWS WAF:} filtra abuso, bots y patrones anómalos en la capa HTTP.
+    \item \textbf{Waiting Room / Admission Control:} limita cuántos usuarios entran al checkout al mismo tiempo. El autoescalado no es la primera defensa ante un pico de 10--20x en segundos.
+    \item \textbf{ECS/Fargate:} Catalog, Checkout, Inventory y Ticket corren como servicios en múltiples Availability Zones, sin administrar servidores.
+    \item \textbf{Aurora PostgreSQL:} fuente de verdad del inventario numerado, órdenes y estados de pago. Decide el último asiento.
+    \item \textbf{ElastiCache Redis:} cache y aceleración. Nunca es autoridad de inventario: perder Redis no puede producir una doble venta.
+    \item \textbf{SQS / EventBridge:} desacoplan generación de boletos, notificaciones y conciliación.
+    \item \textbf{S3:} boletos generados y artefactos estáticos.
+    \item \textbf{Secrets Manager / KMS:} secretos y cifrado. La aplicación no guarda datos de tarjeta.
+    \item \textbf{CloudWatch:} métricas, logs, alarmas y la señal de negocio \texttt{payment\_ticket\_inconsistency}.
+\end{itemize}
+
+\subsection{Principio de región propietaria del evento}
+
+Un modelo activo-activo de inventario entre continentes introduce conflicto de escritura, latencia de consenso y un modo de falla difícil de explicar en un on-call de cinco personas. Por eso cada evento tiene una sola región de escritura.
+
+Las consultas de cartelera o disponibilidad aproximada pueden servirse cerca del usuario. La operación \texttt{HOLD} / \texttt{SOLD} viaja a la \textit{home region}. Se acepta algo más de latencia en la compra a cambio de una sola fuente de verdad.
+
+\subsection{Flujos críticos}
+
+\subsubsection{Flash crowd y control de admisión}
+
+Cuando se liberan boletos, el sistema no espera a que ECS reaccione. CloudFront y WAF absorben y filtran; la sala de espera dosifica el ingreso al checkout; la capacidad de Fargate se preescala antes del evento.
+
+\begin{figure}[H]
+\centering
+\resizebox{0.98\textwidth}{!}{%
+\begin{tikzpicture}[font=\sffamily\scriptsize, node distance=7mm]
+  \node[lt/box, minimum width=2.15cm] (u) {Usuarios};
+  \node[lt/box, minimum width=2.15cm, right=of u] (d) {Route 53};
+  \node[lt/box, minimum width=2.45cm, right=of d] (c) {CloudFront\\+ WAF};
+  \node[lt/accent, minimum width=2.7cm, right=of c] (w) {Waiting Room};
+  \node[lt/box, minimum width=2.3cm, right=of w] (k) {Checkout};
+  \node[lt/dark, minimum width=2.4cm, right=of k] (a) {Aurora\\inventario};
+
+  \draw[lt/arr] (u) -- (d);
+  \draw[lt/arr] (d) -- (c);
+  \draw[lt/arr] (c) -- (w);
+  \draw[lt/arr] (w) -- (k);
+  \draw[lt/arr] (k) -- (a);
+
+  \node[font=\sffamily\tiny\color{livetixgray}, below=2.2mm of w]
+    {Admite un cupo; el resto espera};
+\end{tikzpicture}%
+}
+\caption{El pico se absorbe en el borde y se dosifica antes del recurso crítico.}
+\end{figure}
+
+\subsubsection{Concurrencia de inventario}
+
+La reserva es una actualización condicional en Aurora. El asiento pasa de \texttt{AVAILABLE} a \texttt{HELD} y después a \texttt{SOLD}, o regresa a \texttt{AVAILABLE} si el hold expira.
+
+El \texttt{hold\_id} es el token de propiedad temporal. El worker de expiración es idempotente: no puede liberar un hold nuevo que ya sustituyó al anterior. Redis puede mostrar un mapa de asientos más rápido, pero el último asiento lo confirma PostgreSQL.
+
+\subsubsection{Pago, boleto y conciliación}
+
+La pasarela autoriza el instrumento; LiveTix no almacena tarjetas. La captura ocurre solo cuando el boleto ya se generó. Si la emisión falla de forma permanente, se hace \textit{void} de la autorización y la orden queda cancelada. Un reconciliador compara periódicamente pagos, órdenes y boletos.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[font=\sffamily\scriptsize, node distance=6.5mm]
+  \node[lt/box, minimum width=2.7cm] (h) {1. Hold\\del asiento};
+  \node[lt/box, minimum width=2.7cm, right=of h] (o) {2. Orden\\PENDING};
+  \node[lt/box, minimum width=2.7cm, right=of o] (au) {3. Autorizar\\pago};
+  \node[lt/dark, minimum width=2.7cm, right=of au] (tx) {4. ACID +\\outbox};
+  \node[lt/box, minimum width=2.7cm, below=14mm of h] (t) {5. Generar\\boleto};
+  \node[lt/box, minimum width=2.7cm, right=of t] (ca) {6. Capturar\\pago};
+  \node[lt/box, minimum width=2.7cm, right=of ca] (e) {7. Ticket\\emitido};
+  \node[lt/accent, minimum width=2.7cm, right=of e] (r) {8. Reconciliar};
+
+  \draw[lt/arr] (h) -- (o);
+  \draw[lt/arr] (o) -- (au);
+  \draw[lt/arr] (au) -- (tx);
+  \draw[lt/arr] (tx.south) -- ++(0,-0.42) -| (t.north);
+  \draw[lt/arr] (t) -- (ca);
+  \draw[lt/arr] (ca) -- (e);
+  \draw[lt/arr] (e) -- (r);
+\end{tikzpicture}%
+}
+\caption{La captura queda después de la emisión del boleto. La conciliación cierra huecos entre sistemas.}
+\end{figure}
+
+% ============================================================
+\section{Decisiones importantes}
+% ============================================================
+
+\sectionintro{Las decisiones privilegian consistencia, absorción de picos y una operación que un equipo de cinco ingenieros pueda sostener.}
+
+\subsection{Inventario como fuente de verdad}
+
+\decision{Aurora PostgreSQL es la autoridad del asiento}{El inventario numerado exige exclusión mutua. Una actualización condicional (\texttt{status = AVAILABLE}) más una restricción de unicidad evitan la doble venta sin un protocolo distribuido adicional.}
+
+\decision{Redis no es autoridad}{Sirve para cache del mapa de asientos, sesiones y rate limiting. Si Redis se vacía o se desincroniza, el checkout sigue consultando Aurora. Un cache caliente nunca confirma una venta.}
+
+\subsection{Modelo de estado del asiento}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{>{\ttfamily}l p{10.6cm}}
+\toprule
+\normalfont\textbf{Campo} & \textbf{Propósito} \\
+\midrule
+event\_id & Identifica el evento y, con ello, su \textit{home region}. \\
+seat\_id & Identifica el asiento numerado. \\
+status & \texttt{AVAILABLE} / \texttt{HELD} / \texttt{SOLD}. \\
+hold\_id & Token de reserva temporal; hace idempotente la expiración. \\
+hold\_expires\_at & Vencimiento del hold. \\
+order\_id & Orden asociada cuando el asiento se vende. \\
+version & Control de concurrencia optimista. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Picos de tráfico}
+
+El autoescalado reactivo llega tarde cuando la demanda crece en segundos. La defensa es en capas:
+
+\begin{itemize}
+    \item preescalado de Fargate antes de eventos anunciados;
+    \item CloudFront para lo estático y cacheable;
+    \item WAF en el perímetro;
+    \item waiting room para dosificar checkout;
+    \item SQS para trabajo asíncrono que no debe competir con la reserva.
+\end{itemize}
+
+El objetivo no es que todos lleguen al mismo tiempo al asiento, sino que quienes pasan el cupo encuentren un sistema estable.
+
+\subsection{Consistencia de pago}
+
+La pasarela es dueña del instrumento; LiveTix es dueño de la orden, el asiento y el boleto. La integración usa claves de idempotencia y webhooks firmados.
+
+Secuencia:
+
+\begin{enumerate}
+    \item Crear hold del asiento.
+    \item Crear orden en \texttt{PENDING\_PAYMENT}.
+    \item Autorizar el pago.
+    \item Confirmar asiento y orden en una transacción ACID.
+    \item Registrar \texttt{TICKET\_REQUESTED} en el transactional outbox.
+    \item Generar el boleto de forma idempotente.
+    \item Capturar el pago.
+    \item Marcar el boleto como emitido.
+\end{enumerate}
+
+Autorizar y capturar van separados a propósito: no se cobra en firme si todavía no hay boleto.
+
+\subsection{Transactional outbox e idempotencia}
+
+El evento de emisión se persiste en la misma transacción que confirma asiento y orden. Un publisher aparte lo coloca en SQS. Los consumidores asumen entrega \textit{at-least-once}: la generación del boleto y la captura deben ser idempotentes.
+
+\subsection{Multi-región y resiliencia}
+
+Cada región corre en varias Availability Zones. La escritura crítica no cruza de región en el camino feliz. Ante una caída regional completa se recupera en una región secundaria; RPO y RTO se confirman con pruebas de failover, no solo con el diseño.
+
+\subsection{Observabilidad}
+
+Alarmas prioritarias:
+
+\begin{itemize}
+    \item tasa de éxito de checkout;
+    \item conflictos de reserva de inventario;
+    \item fallos de autorización y de captura;
+    \item latencia y errores de emisión de boletos;
+    \item profundidad y antigüedad de SQS;
+    \item órdenes sin boleto;
+    \item pagos sin boleto correspondiente;
+    \item errores por región y por Availability Zone.
+\end{itemize}
+
+La métrica de negocio que no puede quedar en verde con mentiras es \texttt{payment\_ticket\_inconsistency = 0}.
+
+\subsection{Tradeoffs principales}
+
+\begin{longtable}{p{3.8cm} p{5.2cm} p{5.2cm}}
+\toprule
+\textbf{Decisión} & \textbf{Beneficio} & \textbf{Costo} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Decisión} & \textbf{Beneficio} & \textbf{Costo} \\
+\midrule
+\endhead
+\textit{Home region} por evento & Consistencia fuerte del inventario & Una compra puede cruzar región \\
+Aurora como fuente de verdad & Evita double-selling & Más costo que un cache puro \\
+Waiting room & Protege el checkout en picos & El usuario espera \\
+SQS + outbox & Absorbe carga y sobrevive a fallos parciales & Más piezas que operar \\
+Fargate & Menos servidores que administrar & Menos control fino que EC2 \\
+Multi-AZ + DR regional & Resiliencia real & Costo y ejercicios de failover \\
+Sin K8s ni service mesh & Operable por un equipo pequeño & Menos portabilidad multi-cloud \\
+\bottomrule
+\end{longtable}
+
+% ============================================================
+\section{Infraestructura como código \& CI/CD}
+% ============================================================
+
+\sectionintro{Terraform y el pipeline deben permitir repetir ambientes, aislar regiones y desplegar sin convertir la plataforma en un segundo producto para un equipo de cinco personas.}
+
+\subsection{Estructura de Terraform}
+
+\begin{verbatim}
+infrastructure/
+|
++-- modules/
+|   +-- networking/
+|   +-- ecs/
+|   +-- aurora/
+|   +-- redis/
+|   +-- sqs/
+|   +-- cloudfront/
+|   +-- observability/
+|
++-- environments/
+|   +-- dev/
+|   +-- staging/
+|   +-- production/
+|       +-- us-east-1/
+|       +-- eu-west-1/
+|       +-- ap-northeast-1/
+|
++-- global/
+    +-- route53/
+    +-- cloudfront/
+    +-- iam/
+\end{verbatim}
+
+Los módulos expresan el patrón reutilizable (servicio ECS, cluster Aurora, cola, observabilidad). Los environments solo pasan capacidad, red y flags. Producción se parte por región para limitar el blast radius. Lo global ---Route~53, CloudFront, IAM--- vive fuera de los stacks regionales.
+
+\subsection{Versionado y cambios}
+
+Versiones de módulos y providers van fijadas. Todo cambio entra por pull request, con \texttt{terraform plan} en CI y apply solo después de revisión. No hay consola como fuente de verdad.
+
+\subsection{Secretos}
+
+Nada de secretos en git ni en \texttt{tfvars} versionados. Secrets Manager y KMS, con IAM de mínimo privilegio y roles de tarea en lugar de access keys estáticas.
+
+\subsection{Pipeline CI/CD}
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[font=\sffamily\scriptsize, node distance=5.8mm]
+  \node[lt/box, minimum width=2.05cm] (pr) {PR\\lint + tests};
+  \node[lt/box, minimum width=2.05cm, right=of pr] (img) {Imagen\\Docker};
+  \node[lt/box, minimum width=2.05cm, right=of img] (scan) {Scan\\deps + image};
+  \node[lt/box, minimum width=2.05cm, right=of scan] (ecr) {ECR};
+  \node[lt/box, minimum width=2.05cm, right=of ecr] (dev) {Deploy\\dev};
+  \node[lt/box, minimum width=2.05cm, below=12mm of pr] (stg) {Staging\\+ smoke};
+  \node[lt/accent, minimum width=2.05cm, right=of stg] (appr) {Aprobación\\prod};
+  \node[lt/dark, minimum width=2.05cm, right=of appr] (prod) {Prod\\canary};
+  \node[lt/box, minimum width=2.05cm, right=of prod] (obs) {Métricas};
+  \node[lt/box, minimum width=2.05cm, right=of obs] (rb) {Rollback};
+
+  \draw[lt/arr] (pr) -- (img);
+  \draw[lt/arr] (img) -- (scan);
+  \draw[lt/arr] (scan) -- (ecr);
+  \draw[lt/arr] (ecr) -- (dev);
+  \draw[lt/arr] (dev.south) -- ++(0,-0.38) -| (stg.north);
+  \draw[lt/arr] (stg) -- (appr);
+  \draw[lt/arr] (appr) -- (prod);
+  \draw[lt/arr] (prod) -- (obs);
+  \draw[lt/arr] (obs) -- (rb);
+\end{tikzpicture}%
+}
+\caption{Pipeline: verificación automática hasta staging; producción con aprobación, canary y rollback por alarmas.}
+\end{figure}
+
+Etapas:
+
+\begin{enumerate}
+    \item Commit / pull request.
+    \item Compilación y pruebas unitarias.
+    \item Análisis estático y quality gates.
+    \item Construcción de imagen Docker.
+    \item Escaneo de dependencias e imagen.
+    \item Publicación en ECR.
+    \item Despliegue automático a \texttt{dev}.
+    \item Pruebas de integración y smoke tests.
+    \item Despliegue a \texttt{staging}.
+    \item Aprobación para producción.
+    \item Despliegue canary o blue/green.
+    \item Verificación de métricas y rollback si hay alarma.
+\end{enumerate}
+
+Infraestructura sigue un pipeline paralelo: \texttt{fmt}, \texttt{validate}, \texttt{plan} en el PR y \texttt{apply} controlado por ambiente. Las migraciones de base de datos deben ser compatibles con el código anterior para no romper un canary a medias.
+
+\subsection{Operabilidad}
+
+No se introduce Kubernetes, service mesh ni un segundo stack de observabilidad sin una necesidad concreta. El núcleo es ECS/Fargate, Aurora, SQS, CloudFront, Route~53, Secrets Manager y CloudWatch.
+
+Sí se acepta complejidad donde el negocio la exige: outbox, reconciliación y \textit{home region}. El resto se mantiene deliberadamente simple.
+
+% ============================================================
+\section*{Conclusión}
+\addcontentsline{toc}{section}{Conclusión}
+
+La propuesta no maximiza sofisticación. Busca tres garantías: el checkout no colapsa en un flash crowd, el último asiento se vende una sola vez, y una captura de pago tiene boleto.
+
+La \textit{home region} da una fuente de verdad clara sin un inventario activo-activo global. Outbox, consumidores idempotentes y reconciliación cubren los huecos entre LiveTix y la pasarela. Terraform, ambientes aislados y un pipeline con canary permiten operar esto con un equipo pequeño.
+
+\end{document}
