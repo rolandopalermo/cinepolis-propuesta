@@ -319,7 +319,11 @@ Cuando se liberan boletos, el sistema no espera a que ECS reaccione, en su lugar
 
 La reserva es una actualización condicional en Aurora. El asiento pasa de \texttt{AVAILABLE} a \texttt{HELD} y después a \texttt{SOLD}, o regresa a \texttt{AVAILABLE} si el hold expira.
 
-El \texttt{hold\_id} es el token de propiedad temporal. El worker de expiración es idempotente: no puede liberar un hold nuevo que ya sustituyó al anterior. Redis puede mostrar un mapa de asientos más rápido, pero el último asiento lo confirma PostgreSQL.
+\begin{itemize}
+\item El \texttt{hold\_id} es el token de propiedad temporal.
+\item El worker de expiración es idempotente: no puede liberar un hold nuevo que ya sustituyó al anterior.
+\item Redis puede mostrar un mapa de asientos más rápido, pero el último asiento lo confirma PostgreSQL.
+\end{itemize}
 
 \clearpage
 \thispagestyle{empty}
@@ -327,39 +331,30 @@ El \texttt{hold\_id} es el token de propiedad temporal. El worker de expiración
 \vspace*{0pt}
 \begin{tikzpicture}[remember picture, overlay]
   \node[inner sep=0pt, anchor=center] at (current page.center) {%
-    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{checkout-api-admission-flow-054750.png}%
+    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{Checkout API Admission Flow-2026-09-07-055408.png}%
   };
 \end{tikzpicture}
 \clearpage
 
 \subsubsection{Pago, boleto y conciliación}
 
-La pasarela autoriza el instrumento; LiveTix no almacena tarjetas. La captura ocurre solo cuando el boleto ya se generó. Si la emisión falla de forma permanente, se hace \textit{void} de la autorización y la orden queda cancelada. Un reconciliador compara periódicamente pagos, órdenes y boletos.
+\begin{itemize}
+\item La pasarela autoriza el pago; LiveTix no almacena tarjetas.
+\item La captura ocurre solo cuando el boleto ya se generó.
+\item Si la emisión falla de forma permanente, se hace \textit{void} de la autorización y la orden queda cancelada.
+\item Un reconciliador compara periódicamente pagos, órdenes y boletos.
+\end{itemize}
 
-\begin{figure}[H]
-\centering
-\resizebox{\textwidth}{!}{%
-\begin{tikzpicture}[font=\sffamily\scriptsize, node distance=6.5mm]
-  \node[lt/box, minimum width=2.7cm] (h) {1. Hold\\del asiento};
-  \node[lt/box, minimum width=2.7cm, right=of h] (o) {2. Orden\\PENDING};
-  \node[lt/box, minimum width=2.7cm, right=of o] (au) {3. Autorizar\\pago};
-  \node[lt/dark, minimum width=2.7cm, right=of au] (tx) {4. ACID +\\outbox};
-  \node[lt/box, minimum width=2.7cm, below=14mm of h] (t) {5. Generar\\boleto};
-  \node[lt/box, minimum width=2.7cm, right=of t] (ca) {6. Capturar\\pago};
-  \node[lt/box, minimum width=2.7cm, right=of ca] (e) {7. Ticket\\emitido};
-  \node[lt/accent, minimum width=2.7cm, right=of e] (r) {8. Reconciliar};
-
-  \draw[lt/arr] (h) -- (o);
-  \draw[lt/arr] (o) -- (au);
-  \draw[lt/arr] (au) -- (tx);
-  \draw[lt/arr] (tx.south) -- ++(0,-0.42) -| (t.north);
-  \draw[lt/arr] (t) -- (ca);
-  \draw[lt/arr] (ca) -- (e);
-  \draw[lt/arr] (e) -- (r);
-\end{tikzpicture}%
-}
-\caption{La captura queda después de la emisión del boleto. La conciliación cierra huecos entre sistemas.}
-\end{figure}
+\clearpage
+\thispagestyle{empty}
+\enlargethispage{5pt}
+\vspace*{0pt}
+\begin{tikzpicture}[remember picture, overlay]
+  \node[inner sep=0pt, anchor=center] at (current page.center) {%
+    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{checkout-api-admission-flow-060456.png}%
+  };
+\end{tikzpicture}
+\clearpage
 
 % ============================================================
 \section{Decisiones importantes}
@@ -372,25 +367,6 @@ La pasarela autoriza el instrumento; LiveTix no almacena tarjetas. La captura oc
 \decision{Aurora PostgreSQL es la autoridad del asiento}{El inventario numerado exige exclusión mutua. Una actualización condicional (\texttt{status = AVAILABLE}) más una restricción de unicidad evitan la doble venta sin un protocolo distribuido adicional.}
 
 \decision{Redis no es autoridad}{Sirve para cache del mapa de asientos, sesiones y rate limiting. Si Redis se vacía o se desincroniza, el checkout sigue consultando Aurora. Un cache caliente nunca confirma una venta.}
-
-\subsection{Modelo de estado del asiento}
-
-\begin{center}
-\renewcommand{\arraystretch}{1.25}
-\begin{tabular}{>{\ttfamily}l p{10.6cm}}
-\toprule
-\normalfont\textbf{Campo} & \textbf{Propósito} \\
-\midrule
-event\_id & Identifica el evento y, con ello, su \textit{home region}. \\
-seat\_id & Identifica el asiento numerado. \\
-status & \texttt{AVAILABLE} / \texttt{HELD} / \texttt{SOLD}. \\
-hold\_id & Token de reserva temporal; hace idempotente la expiración. \\
-hold\_expires\_at & Vencimiento del hold. \\
-order\_id & Orden asociada cuando el asiento se vende. \\
-version & Control de concurrencia optimista. \\
-\bottomrule
-\end{tabular}
-\end{center}
 
 \subsection{Picos de tráfico}
 
