@@ -1,0 +1,58 @@
+sequenceDiagram
+    autonumber
+
+    actor User as Usuario
+    participant CF as CloudFront
+    participant WAF as AWS WAF
+    participant WR as Waiting Room<br/>Admission Service
+    participant DB as DynamoDB<br/>Queue State
+    participant Checkout as Checkout API<br/>ECS/Fargate
+
+    User->>CF: GET /events/{eventId}
+    CF->>WAF: Request
+
+    WAF->>WAF: Validar IP / bot / rate limits
+
+    alt Request permitido
+        WAF->>WR: Check admission status
+    else Request bloqueado
+        WAF-->>User: HTTP 403
+    end
+
+    WR->>DB: Get/Create queue entry
+    DB-->>WR: Position + status
+
+    alt Usuario aún no admitido
+
+        WR-->>CF: WAITING + queueToken
+        CF-->>User: Waiting Room + posición
+
+        loop Polling cada N segundos
+            User->>CF: GET /waiting-room/status
+            CF->>WR: Validate queueToken
+            WR->>DB: Get queue status
+            DB-->>WR: Position / admitted
+
+            alt Capacidad disponible
+                WR->>DB: Mark user ADMITTED
+                WR-->>CF: Admission token
+                CF-->>User: Redirect /checkout
+            else Capacidad ocupada
+                WR-->>CF: Still waiting
+                CF-->>User: Position updated
+            end
+        end
+
+    else Usuario ya admitido
+
+        WR-->>CF: Admission token
+        CF-->>User: Redirect /checkout
+
+    end
+
+    User->>CF: GET /checkout
+    CF->>WAF: Validate request
+    WAF->>Checkout: Forward request
+
+    Checkout->>Checkout: Validate admission token
+    Checkout-->>User: Checkout disponible

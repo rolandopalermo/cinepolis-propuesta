@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+
+    actor UserA as Usuario A
+    actor UserB as Usuario B
+    participant API as Inventory Service<br/>ECS/Fargate
+    participant Redis as Redis<br/>Cache
+    participant DB as Aurora PostgreSQL
+
+    Note over UserA,DB: Ambos usuarios intentan comprar el mismo asiento
+
+    UserA->>API: POST /holds<br/>seat=A-10
+    UserB->>API: POST /holds<br/>seat=A-10
+
+    API->>Redis: Consultar disponibilidad
+    Redis-->>API: AVAILABLE
+
+    API->>DB: BEGIN TRANSACTION
+    API->>DB: UPDATE seat_inventory<br/>SET status=HELD, holdId=HOLD-A<br/>WHERE seat=A-10<br/>AND status=AVAILABLE
+
+    API->>DB: BEGIN TRANSACTION
+    API->>DB: UPDATE seat_inventory<br/>SET status=HELD, holdId=HOLD-B<br/>WHERE seat=A-10<br/>AND status=AVAILABLE
+
+    DB-->>API: 1 row updated
+    DB-->>API: 0 rows updated
+
+    API->>DB: COMMIT
+    API-->>UserA: 200 OK<br/>Seat HELD<br/>holdId=HOLD-A
+
+    API->>DB: ROLLBACK / no change
+    API-->>UserB: 409 Conflict<br/>Seat no longer available
+
+    Note over DB: Solo una transacción puede cambiar<br/>AVAILABLE → HELD
+
+    UserA->>API: Confirm purchase
+    API->>DB: UPDATE seat<br/>HELD → SOLD
+    DB-->>API: 1 row updated
+    API-->>UserA: Ticket purchase confirmed

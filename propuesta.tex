@@ -230,9 +230,9 @@ LiveTix opera en México, Estados Unidos, España y Japón. La propuesta usa tre
   \draw[livetixblue, fill=livetixlight, rounded corners=3pt]
     (0,11.15) rectangle (15.2,13.05);
   \node[font=\sffamily\bfseries\color{livetixblue}] at (7.6,12.78) {Usuarios};
-  \node[lt/box, minimum width=4.2cm, fill=white] (amer) at (2.6,11.75) {AMER};
-  \node[lt/box, minimum width=4.2cm, fill=white] (emea) at (7.6,11.75) {EMEA};
-  \node[lt/box, minimum width=4.2cm, fill=white] (apac) at (12.6,11.75) {APAC};
+  \node[lt/box, minimum width=4.2cm, fill=white] (amer) at (2.6,11.75) {USA/MX};
+  \node[lt/box, minimum width=4.2cm, fill=white] (emea) at (7.6,11.75) {ES};
+  \node[lt/box, minimum width=4.2cm, fill=white] (apac) at (12.6,11.75) {JPN};
 
   % --- Borde global (grupo) ---
   \draw[livetixblue, fill=white, rounded corners=3pt]
@@ -290,66 +290,47 @@ LiveTix opera en México, Estados Unidos, España y Japón. La propuesta usa tre
   \draw[lt/arr] (wr.south) -- ++(0,-0.28) -| (ap.north);
 \end{tikzpicture}%
 }
-\caption{Arquitectura global de LiveTix: borde único, control de admisión y tres regiones con fuente de verdad local.}
+\caption{Arquitectura global de LiveTix}
 \end{figure}
-
-\subsection{Componentes principales}
-
-\begin{itemize}
-    \item \textbf{Route 53:} DNS y enrutamiento de entrada. Puede dirigir al borde global y, cuando aplica, a la \textit{home region} del evento.
-    \item \textbf{CloudFront:} reduce latencia de catálogo, asientos estáticos y assets. Absorbe una parte del flash crowd antes de llegar a origen.
-    \item \textbf{AWS WAF:} filtra abuso, bots y patrones anómalos en la capa HTTP.
-    \item \textbf{Waiting Room / Admission Control:} limita cuántos usuarios entran al checkout al mismo tiempo. El autoescalado no es la primera defensa ante un pico de 10--20x en segundos.
-    \item \textbf{ECS/Fargate:} Catalog, Checkout, Inventory y Ticket corren como servicios en múltiples Availability Zones, sin administrar servidores.
-    \item \textbf{Aurora PostgreSQL:} fuente de verdad del inventario numerado, órdenes y estados de pago. Decide el último asiento.
-    \item \textbf{ElastiCache Redis:} cache y aceleración. Nunca es autoridad de inventario: perder Redis no puede producir una doble venta.
-    \item \textbf{SQS / EventBridge:} desacoplan generación de boletos, notificaciones y conciliación.
-    \item \textbf{S3:} boletos generados y artefactos estáticos.
-    \item \textbf{Secrets Manager / KMS:} secretos y cifrado. La aplicación no guarda datos de tarjeta.
-    \item \textbf{CloudWatch:} métricas, logs, alarmas y la señal de negocio \texttt{payment\_ticket\_inconsistency}.
-\end{itemize}
-
-\subsection{Principio de región propietaria del evento}
-
-Un modelo activo-activo de inventario entre continentes introduce conflicto de escritura, latencia de consenso y un modo de falla difícil de explicar en un on-call de cinco personas. Por eso cada evento tiene una sola región de escritura.
-
-Las consultas de cartelera o disponibilidad aproximada pueden servirse cerca del usuario. La operación \texttt{HOLD} / \texttt{SOLD} viaja a la \textit{home region}. Se acepta algo más de latencia en la compra a cambio de una sola fuente de verdad.
 
 \subsection{Flujos críticos}
 
 \subsubsection{Flash crowd y control de admisión}
 
-Cuando se liberan boletos, el sistema no espera a que ECS reaccione. CloudFront y WAF absorben y filtran; la sala de espera dosifica el ingreso al checkout; la capacidad de Fargate se preescala antes del evento.
+Cuando se liberan boletos, el sistema no espera a que ECS reaccione, en su lugar:
+\begin{itemize}
+\item CloudFront y WAF absorben y filtran.
+\item La sala de espera dosifica el ingreso al checkout.
+\item La capacidad de Fargate se preescala antes del evento.
+\end{itemize}
 
-\begin{figure}[H]
-\centering
-\resizebox{0.98\textwidth}{!}{%
-\begin{tikzpicture}[font=\sffamily\scriptsize, node distance=7mm]
-  \node[lt/box, minimum width=2.15cm] (u) {Usuarios};
-  \node[lt/box, minimum width=2.15cm, right=of u] (d) {Route 53};
-  \node[lt/box, minimum width=2.45cm, right=of d] (c) {CloudFront\\+ WAF};
-  \node[lt/accent, minimum width=2.7cm, right=of c] (w) {Waiting Room};
-  \node[lt/box, minimum width=2.3cm, right=of w] (k) {Checkout};
-  \node[lt/dark, minimum width=2.4cm, right=of k] (a) {Aurora\\inventario};
-
-  \draw[lt/arr] (u) -- (d);
-  \draw[lt/arr] (d) -- (c);
-  \draw[lt/arr] (c) -- (w);
-  \draw[lt/arr] (w) -- (k);
-  \draw[lt/arr] (k) -- (a);
-
-  \node[font=\sffamily\tiny\color{livetixgray}, below=2.2mm of w]
-    {Admite un cupo; el resto espera};
-\end{tikzpicture}%
-}
-\caption{El pico se absorbe en el borde y se dosifica antes del recurso crítico.}
-\end{figure}
+\clearpage
+\thispagestyle{empty}
+\enlargethispage{5pt}
+\vspace*{0pt}
+\begin{tikzpicture}[remember picture, overlay]
+  \node[inner sep=0pt, anchor=center] at (current page.center) {%
+    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{checkout-api-admission-flow.png}%
+  };
+\end{tikzpicture}
+\clearpage
 
 \subsubsection{Concurrencia de inventario}
 
 La reserva es una actualización condicional en Aurora. El asiento pasa de \texttt{AVAILABLE} a \texttt{HELD} y después a \texttt{SOLD}, o regresa a \texttt{AVAILABLE} si el hold expira.
 
 El \texttt{hold\_id} es el token de propiedad temporal. El worker de expiración es idempotente: no puede liberar un hold nuevo que ya sustituyó al anterior. Redis puede mostrar un mapa de asientos más rápido, pero el último asiento lo confirma PostgreSQL.
+
+\clearpage
+\thispagestyle{empty}
+\enlargethispage{5pt}
+\vspace*{0pt}
+\begin{tikzpicture}[remember picture, overlay]
+  \node[inner sep=0pt, anchor=center] at (current page.center) {%
+    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{checkout-api-admission-flow-054750.png}%
+  };
+\end{tikzpicture}
+\clearpage
 
 \subsubsection{Pago, boleto y conciliación}
 
