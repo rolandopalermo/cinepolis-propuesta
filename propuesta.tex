@@ -23,6 +23,7 @@
 \usepackage{float}
 \usepackage{titlesec}
 \usepackage{caption}
+\usepackage{listings}
 
 \usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric,backgrounds,babel}
 
@@ -35,11 +36,28 @@
 \definecolor{livetixline}{HTML}{C5D0D8}
 \definecolor{livetixok}{HTML}{2D6A4F}
 
+\lstdefinestyle{livetixsql}{
+    language=SQL,
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\bfseries\color{livetixblue},
+    backgroundcolor=\color{livetixlight},
+    frame=tb,
+    rulecolor=\color{livetixline},
+    framesep=6pt,
+    breaklines=true,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    aboveskip=0.55em,
+    belowskip=0.7em,
+    morekeywords={interval}
+}
+
 \hypersetup{
     colorlinks=true,
     linkcolor=livetixblue,
     urlcolor=livetixblue,
-    pdftitle={LiveTix --- Propuesta de Arquitectura},
+    pdftitle={LiveTix --- Propuesta de arquitectura},
     pdfauthor={Rolando Palermo Rodríguez Cruz}
 }
 
@@ -142,10 +160,10 @@
     \end{flushright}
 
     \vspace{1.6cm}
-    {\Huge\bfseries\sffamily\textcolor{livetixblue}{Propuesta de Arquitectura}}\\[0.45cm]
+    {\Huge\bfseries\sffamily\textcolor{livetixblue}{Propuesta de arquitectura}}\\[0.45cm]
     {\Large\sffamily Plataforma global de venta de boletos para eventos en vivo}\\[1.0cm]
     {\color{livetixaccent}\rule{4.2cm}{2.4pt}}\\[0.7cm]
-    {\large\sffamily System Design Challenge --- Cloud Engineer Senior}
+    {\large\sffamily System Design Challenge}
 
     \vfill
     \begin{tabular}{@{}ll}
@@ -226,93 +244,102 @@ LiveTix opera en México, Estados Unidos, España y Japón. La propuesta usa tre
 \centering
 \resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
-  % --- Usuarios (grupo) ---
+  % --- Usuarios ---
   \draw[livetixblue, fill=livetixlight, rounded corners=3pt]
-    (0,11.15) rectangle (15.2,13.05);
-  \node[font=\sffamily\bfseries\color{livetixblue}] at (7.6,12.78) {Usuarios};
-  \node[lt/box, minimum width=4.2cm, fill=white] (amer) at (2.6,11.75) {USA/MX};
-  \node[lt/box, minimum width=4.2cm, fill=white] (emea) at (7.6,11.75) {ES};
-  \node[lt/box, minimum width=4.2cm, fill=white] (apac) at (12.6,11.75) {JPN};
+    (0,12.40) rectangle (15.2,14.30);
+  \node[font=\sffamily\bfseries\color{livetixblue}] at (7.6,14.05) {Usuarios};
+  \node[lt/box, minimum width=4.2cm, fill=white] (amer) at (2.6,13.00) {USA/MX};
+  \node[lt/box, minimum width=4.2cm, fill=white] (emea) at (7.6,13.00) {ES};
+  \node[lt/box, minimum width=4.2cm, fill=white] (apac) at (12.6,13.00) {JPN};
 
-  % --- Borde global (grupo) ---
+  % --- Borde global (columna vertical) ---
   \draw[livetixblue, fill=white, rounded corners=3pt]
-    (0,8.35) rectangle (15.2,10.35);
-  \node[font=\sffamily\bfseries\color{livetixblue}] at (7.6,10.08) {Borde global};
-  \node[lt/box, minimum width=4.2cm] (cf) at (2.6,9.05) {CloudFront\\CDN};
-  \node[lt/box, minimum width=4.2cm] (r53) at (7.6,9.05) {Route 53\\DNS global};
-  \node[lt/box, minimum width=4.2cm] (waf) at (12.6,9.05) {AWS WAF\\per\'imetro};
+    (4.15,7.50) rectangle (11.05,12.15);
+  \node[font=\sffamily\bfseries\color{livetixblue}] at (7.6,11.88) {Borde global};
+  \node[lt/box, minimum width=6.4cm] (r53) at (7.6,10.90) {Route 53\\DNS global};
+  \node[lt/box, minimum width=6.4cm] (cf) at (7.6,9.70) {CloudFront\\CDN};
+  \node[lt/box, minimum width=6.4cm] (waf) at (7.6,8.50) {AWS WAF\\per\'imetro};
 
-  \node[lt/accent, minimum width=15.0cm, minimum height=0.85cm] (wr) at (7.6,7.35)
-    {Waiting Room / Admission Control};
+  % --- Waiting Room ---
+  \draw[livetixblue, fill=white, rounded corners=3pt]
+    (0,5.15) rectangle (15.2,7.30);
+  \node[font=\sffamily\bfseries\color{livetixblue}] at (7.6,7.03)
+    {Waiting Room / Admission Service};
+  \node[lt/accent, minimum width=6.8cm] (wr) at (4.0,6.05) {Admission Service\\Lambda@Edge};
+  \node[lt/box, minimum width=6.8cm] (ddb) at (11.2,6.05) {DynamoDB\\Queue State};
 
-  \node[lt/region, minimum width=4.6cm] (us) at (2.6,4.55) {%
+  \node[lt/region, minimum width=4.6cm] (us) at (2.6,3.15) {%
     \begin{tabular}{@{}c@{}}
       \textbf{\textcolor{livetixblue}{us-east-1}}\\[1pt]
       {\scriptsize home MX / US}\\[3pt]
       Catalog · Checkout\\
-      Inventory · Ticket\\[2pt]
+      Inventory · Ticket\\
+      Reconciliation Job\\[2pt]
       ECS / Fargate Multi-AZ\\[2pt]
       Aurora PostgreSQL (SoT)\\
       Redis · SQS · S3
     \end{tabular}
   };
-  \node[lt/region, minimum width=4.6cm] (eu) at (7.6,4.55) {%
+  \node[lt/region, minimum width=4.6cm] (eu) at (7.6,3.15) {%
     \begin{tabular}{@{}c@{}}
       \textbf{\textcolor{livetixblue}{eu-west-1}}\\[1pt]
       {\scriptsize home ES}\\[3pt]
       Catalog · Checkout\\
-      Inventory · Ticket\\[2pt]
+      Inventory · Ticket\\
+      Reconciliation Job\\[2pt]
       ECS / Fargate Multi-AZ\\[2pt]
       Aurora PostgreSQL (SoT)\\
       Redis · SQS · S3
     \end{tabular}
   };
-  \node[lt/region, minimum width=4.6cm] (ap) at (12.6,4.55) {%
+  \node[lt/region, minimum width=4.6cm] (ap) at (12.6,3.15) {%
     \begin{tabular}{@{}c@{}}
       \textbf{\textcolor{livetixblue}{ap-northeast-1}}\\[1pt]
       {\scriptsize home JP}\\[3pt]
       Catalog · Checkout\\
-      Inventory · Ticket\\[2pt]
+      Inventory · Ticket\\
+      Reconciliation Job\\[2pt]
       ECS / Fargate Multi-AZ\\[2pt]
       Aurora PostgreSQL (SoT)\\
       Redis · SQS · S3
     \end{tabular}
   };
 
-  \node[lt/box, minimum width=15.0cm] (ops) at (7.6,1.85) {%
+  \node[lt/box, minimum width=15.0cm] (ops) at (7.6,0.75) {%
     Secrets Manager / KMS \quad·\quad CloudWatch \quad·\quad IAM \quad·\quad ECR
   };
 
+  \draw[lt/arr] (amer.south) -- (r53.north west);
   \draw[lt/arr] (emea.south) -- (r53.north);
-  \draw[lt/arr] (r53.south) -- (wr.north);
-  \draw[lt/arr] (wr.south) -- ++(0,-0.28) -| (us.north);
+  \draw[lt/arr] (apac.south) -- (r53.north east);
+  \draw[lt/arr] (r53.south) -- (cf.north);
+  \draw[lt/arr] (cf.south) -- (waf.north);
+  \draw[lt/arr] (waf.south) -- (wr.north);
+  \draw[lt/arr] (wr.south) -- (us.north);
   \draw[lt/arr] (wr.south) -- (eu.north);
-  \draw[lt/arr] (wr.south) -- ++(0,-0.28) -| (ap.north);
+  \draw[lt/arr] (wr.south) -- (ap.north);
 \end{tikzpicture}%
 }
-\caption{Arquitectura global de LiveTix}
+\caption{Arquitectura global de LiveTix: usuarios entran por Route~53 hacia CloudFront y WAF; Waiting Room en Lambda@Edge con DynamoDB; tres regiones con fuente de verdad local y job de reconciliación.}
 \end{figure}
 
 \subsection{Flujos críticos}
 
 \subsubsection{Flash crowd y control de admisión}
 
-Cuando se liberan boletos, el sistema no espera a que ECS reaccione, en su lugar:
+Cuando se liberan boletos, el sistema no espera a que ECS reaccione. En su lugar:
 \begin{itemize}
-\item CloudFront y WAF absorben y filtran.
-\item La sala de espera dosifica el ingreso al checkout.
+\item Route~53 resuelve el DNS; CloudFront y WAF absorben y filtran.
+\item La sala de espera (Admission Service en Lambda@Edge) dosifica el ingreso al checkout; DynamoDB guarda el estado de la cola.
 \item La capacidad de Fargate se preescala antes del evento.
 \end{itemize}
 
 \clearpage
-\thispagestyle{empty}
-\enlargethispage{5pt}
-\vspace*{0pt}
-\begin{tikzpicture}[remember picture, overlay]
-  \node[inner sep=0pt, anchor=center] at (current page.center) {%
-    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{checkout-api-admission-flow.png}%
-  };
-\end{tikzpicture}
+\begin{figure}[p]
+\centering
+\includegraphics[width=\textwidth,height=0.84\textheight,keepaspectratio]{checkout-api-admission-flow.png}
+\caption{Flujo de admisión al checkout. CloudFront y WAF filtran; Admission Service y DynamoDB dosifican el ingreso antes de Fargate.}
+\end{figure}
 \clearpage
 
 \subsubsection{Concurrencia de inventario}
@@ -322,39 +349,19 @@ La reserva es una actualización condicional en Aurora. El asiento pasa de \text
 \begin{itemize}
 \item El \texttt{hold\_id} es el token de propiedad temporal.
 \item El worker de expiración es idempotente: no puede liberar un hold nuevo que ya sustituyó al anterior.
-\item Redis puede mostrar un mapa de asientos más rápido, pero el último asiento lo confirma PostgreSQL.
 \end{itemize}
 
 \clearpage
-\thispagestyle{empty}
-\enlargethispage{5pt}
-\vspace*{0pt}
-\begin{tikzpicture}[remember picture, overlay]
-  \node[inner sep=0pt, anchor=center] at (current page.center) {%
-    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{Checkout API Admission Flow-2026-09-07-055408.png}%
-  };
-\end{tikzpicture}
+\begin{figure}[p]
+\centering
+\includegraphics[width=\textwidth,height=0.84\textheight,keepaspectratio]{concurrencia_inventario_sequence_diagram.png}
+\caption{Concurrencia de inventario. Dos compradores intentan el mismo asiento; Aurora confirma un solo hold.}
+\end{figure}
 \clearpage
 
 \subsubsection{Pago, boleto y conciliación}
 
-\begin{itemize}
-\item La pasarela autoriza el pago; LiveTix no almacena tarjetas.
-\item La captura ocurre solo cuando el boleto ya se generó.
-\item Si la emisión falla de forma permanente, se hace \textit{void} de la autorización y la orden queda cancelada.
-\item Un reconciliador compara periódicamente pagos, órdenes y boletos.
-\end{itemize}
-
-\clearpage
-\thispagestyle{empty}
-\enlargethispage{5pt}
-\vspace*{0pt}
-\begin{tikzpicture}[remember picture, overlay]
-  \node[inner sep=0pt, anchor=center] at (current page.center) {%
-    \includegraphics[width=\paperwidth,height=\paperheight,keepaspectratio]{checkout-api-admission-flow-060456.png}%
-  };
-\end{tikzpicture}
-\clearpage
+El hold del asiento queda en el flujo de inventario. La autorización, la emisión del boleto, la captura y la conciliación se detallan en la sección de consistencia de pago (Figura~\ref{fig:pago-boleto}).
 
 % ============================================================
 \section{Decisiones importantes}
@@ -364,19 +371,45 @@ La reserva es una actualización condicional en Aurora. El asiento pasa de \text
 
 \subsection{Inventario como fuente de verdad}
 
-\decision{Aurora PostgreSQL es la autoridad del asiento}{El inventario numerado exige exclusión mutua. Una actualización condicional (\texttt{status = AVAILABLE}) más una restricción de unicidad evitan la doble venta sin un protocolo distribuido adicional.}
+\decision{Aurora PostgreSQL es la autoridad del asiento}{El inventario numerado exige exclusión mutua. Una actualización condicional (\texttt{status = AVAILABLE}) más una restricción de unicidad evitan la doble venta.}
 
-\decision{Redis no es autoridad}{Sirve para cache del mapa de asientos, sesiones y rate limiting. Si Redis se vacía o se desincroniza, el checkout sigue consultando Aurora. Un cache caliente nunca confirma una venta.}
+\textbf{Reserva atómica.} Solo actualiza el asiento si sigue \texttt{AVAILABLE}:
+
+\begin{lstlisting}[style=livetixsql]
+UPDATE seat_inventory
+SET status = 'HELD',
+    hold_id = :hold_id,
+    hold_expires_at = now() + interval '5 minutes'
+WHERE event_id = :event_id
+  AND seat_id = :seat_id
+  AND status = 'AVAILABLE';
+\end{lstlisting}
+
+\textbf{Liberación de asiento.} El worker solo libera el hold que le corresponde y que ya venció:
+
+\begin{lstlisting}[style=livetixsql]
+UPDATE seat_inventory
+SET status = 'AVAILABLE',
+    hold_id = NULL,
+    hold_expires_at = NULL
+WHERE event_id = :event_id
+  AND seat_id = :seat_id
+  AND status = 'HELD'
+  AND hold_id = :hold_id
+  AND hold_expires_at <= NOW();
+\end{lstlisting}
+
+Si el \texttt{UPDATE} de reserva afecta 0 filas, otro comprador ya tomó el asiento. La condición \texttt{hold\_id = :hold\_id} en la liberación hace que un worker retrasado no deshaga un hold posterior.
 
 \subsection{Picos de tráfico}
 
 El autoescalado reactivo llega tarde cuando la demanda crece en segundos. La defensa es en capas:
 
 \begin{itemize}
-    \item preescalado de Fargate antes de eventos anunciados;
-    \item CloudFront para lo estático y cacheable;
-    \item WAF en el perímetro;
-    \item waiting room para dosificar checkout;
+    \item Preescalado de Fargate antes de eventos anunciados.
+    \item CloudFront para lo estático y cacheable.
+    \item WAF en el perímetro.
+    \item Waiting Room para dosificar el checkout.
     \item SQS para trabajo asíncrono que no debe competir con la reserva.
 \end{itemize}
 
@@ -384,22 +417,14 @@ El objetivo no es que todos lleguen al mismo tiempo al asiento, sino que quienes
 
 \subsection{Consistencia de pago}
 
-La pasarela es dueña del instrumento; LiveTix es dueño de la orden, el asiento y el boleto. La integración usa claves de idempotencia y webhooks firmados.
+La pasarela es dueña del instrumento; LiveTix es dueño de la orden, el asiento y el boleto. La integración usa claves de idempotencia. Autorizar y capturar van separados a propósito: no se cobra en firme si todavía no hay boleto. El flujo, a partir de una orden ya en hold, se muestra en la Figura~\ref{fig:pago-boleto}.
 
-Secuencia:
-
-\begin{enumerate}
-    \item Crear hold del asiento.
-    \item Crear orden en \texttt{PENDING\_PAYMENT}.
-    \item Autorizar el pago.
-    \item Confirmar asiento y orden en una transacción ACID.
-    \item Registrar \texttt{TICKET\_REQUESTED} en el transactional outbox.
-    \item Generar el boleto de forma idempotente.
-    \item Capturar el pago.
-    \item Marcar el boleto como emitido.
-\end{enumerate}
-
-Autorizar y capturar van separados a propósito: no se cobra en firme si todavía no hay boleto.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth,height=0.72\textheight,keepaspectratio]{checkout-api-admission-flow-060456.png}
+\caption{Pago, boleto y conciliación. La captura ocurre después de emitir el boleto; si la emisión falla de forma permanente se hace \textit{void} y un reconciliador cierra huecos entre sistemas.}
+\label{fig:pago-boleto}
+\end{figure}
 
 \subsection{Transactional outbox e idempotencia}
 
@@ -414,14 +439,14 @@ Cada región corre en varias Availability Zones. La escritura crítica no cruza 
 Alarmas prioritarias:
 
 \begin{itemize}
-    \item tasa de éxito de checkout;
-    \item conflictos de reserva de inventario;
-    \item fallos de autorización y de captura;
-    \item latencia y errores de emisión de boletos;
-    \item profundidad y antigüedad de SQS;
-    \item órdenes sin boleto;
-    \item pagos sin boleto correspondiente;
-    \item errores por región y por Availability Zone.
+    \item Tasa de éxito de checkout.
+    \item Conflictos de reserva de inventario.
+    \item Fallos de autorización y de captura.
+    \item Latencia y errores de emisión de boletos.
+    \item Profundidad y antigüedad de SQS.
+    \item Órdenes sin boleto.
+    \item Pagos sin boleto correspondiente.
+    \item Errores por región y por Availability Zone.
 \end{itemize}
 
 La métrica de negocio que no puede quedar en verde con mentiras es \texttt{payment\_ticket\_inconsistency = 0}.
@@ -439,7 +464,7 @@ La métrica de negocio que no puede quedar en verde con mentiras es \texttt{paym
 \endhead
 \textit{Home region} por evento & Consistencia fuerte del inventario & Una compra puede cruzar región \\
 Aurora como fuente de verdad & Evita double-selling & Más costo que un cache puro \\
-Waiting room & Protege el checkout en picos & El usuario espera \\
+Waiting Room & Protege el checkout en picos & El usuario espera \\
 SQS + outbox & Absorbe carga y sobrevive a fallos parciales & Más piezas que operar \\
 Fargate & Menos servidores que administrar & Menos control fino que EC2 \\
 Multi-AZ + DR regional & Resiliencia real & Costo y ejercicios de failover \\
@@ -451,7 +476,7 @@ Sin K8s ni service mesh & Operable por un equipo pequeño & Menos portabilidad m
 \section{Infraestructura como código \& CI/CD}
 % ============================================================
 
-\sectionintro{Terraform y el pipeline deben permitir repetir ambientes, aislar regiones y desplegar sin convertir la plataforma en un segundo producto para un equipo de cinco personas.}
+\sectionintro{Terraform y el pipeline tienen que permitir levantar ambientes de forma repetible, aislar las regiones y hacer despliegues sin que terminemos manteniendo una plataforma paralela que se vuelva demasiado pesada para un equipo de cinco personas. El state de Terraform se mantiene en un bucket S3 dedicado, con versionado, cifrado y acceso controlado por IAM, para evitar perderlo o que alguien lo modifique directamente.}
 
 \subsection{Estructura de Terraform}
 
@@ -464,7 +489,10 @@ infrastructure/
 |   +-- aurora/
 |   +-- redis/
 |   +-- sqs/
-|   +-- cloudfront/
+|   +-- dynamodb/
+|   +-- waf/
+|   +-- waiting-room/
+|   +-- secrets/
 |   +-- observability/
 |
 +-- environments/
@@ -481,11 +509,17 @@ infrastructure/
     +-- iam/
 \end{verbatim}
 
-Los módulos expresan el patrón reutilizable (servicio ECS, cluster Aurora, cola, observabilidad). Los environments solo pasan capacidad, red y flags. Producción se parte por región para limitar el blast radius. Lo global ---Route~53, CloudFront, IAM--- vive fuera de los stacks regionales.
+\begin{itemize}
+    \item Los módulos expresan el patrón reutilizable (servicio ECS, cluster Aurora, cola, tabla DynamoDB, WAF, Waiting Room, secretos, observabilidad).
+    \item CloudFront vive solo en \texttt{global/}. El Waiting Room es Lambda@Edge asociado a esa distribución; WAF se adjunta al mismo borde.
+    \item Los environments solo pasan capacidad, red y flags, e instancian \texttt{modules/secrets} por ambiente.
+    \item Producción se parte por región para limitar el blast radius.
+    \item Los recursos globales (Route~53, CloudFront y IAM) viven fuera de los stacks regionales.
+\end{itemize}
 
 \subsection{Versionado y cambios}
 
-Versiones de módulos y providers van fijadas. Todo cambio entra por pull request, con \texttt{terraform plan} en CI y apply solo después de revisión. No hay consola como fuente de verdad.
+Versiones de módulos y providers van fijadas. Todo cambio entra por pull request, con \texttt{terraform plan} en CI y apply solo después de revisión.
 
 \subsection{Secretos}
 
@@ -496,23 +530,34 @@ Nada de secretos en git ni en \texttt{tfvars} versionados. Secrets Manager y KMS
 \begin{figure}[H]
 \centering
 \resizebox{\textwidth}{!}{%
-\begin{tikzpicture}[font=\sffamily\scriptsize, node distance=5.8mm]
-  \node[lt/box, minimum width=2.05cm] (pr) {PR\\lint + tests};
-  \node[lt/box, minimum width=2.05cm, right=of pr] (img) {Imagen\\Docker};
-  \node[lt/box, minimum width=2.05cm, right=of img] (scan) {Scan\\deps + image};
-  \node[lt/box, minimum width=2.05cm, right=of scan] (ecr) {ECR};
-  \node[lt/box, minimum width=2.05cm, right=of ecr] (dev) {Deploy\\dev};
-  \node[lt/box, minimum width=2.05cm, below=12mm of pr] (stg) {Staging\\+ smoke};
-  \node[lt/accent, minimum width=2.05cm, right=of stg] (appr) {Aprobación\\prod};
-  \node[lt/dark, minimum width=2.05cm, right=of appr] (prod) {Prod\\canary};
-  \node[lt/box, minimum width=2.05cm, right=of prod] (obs) {Métricas};
-  \node[lt/box, minimum width=2.05cm, right=of obs] (rb) {Rollback};
+\begin{tikzpicture}[font=\sffamily\scriptsize, node distance=6mm and 4.2mm]
+  \node[lt/box, minimum width=2.6cm, minimum height=1.65cm, align=center] (pr)
+    {PR\\compilación, tests\\y quality gates};
+  \node[lt/box, minimum width=2.6cm, minimum height=1.65cm, align=center, right=of pr] (img)
+    {Imagen Docker\\build};
+  \node[lt/box, minimum width=2.6cm, minimum height=1.65cm, align=center, right=of img] (scan)
+    {Scan\\dependencias\\e imagen};
+  \node[lt/box, minimum width=2.6cm, minimum height=1.65cm, align=center, right=of scan] (ecr)
+    {ECR\\publicar imagen};
+  \node[lt/box, minimum width=2.6cm, minimum height=1.65cm, align=center, right=of ecr] (dev)
+    {Dev\\deploy automático};
+
+  \node[lt/box, minimum width=2.6cm, minimum height=1.65cm, align=center, below=14mm of pr] (stg)
+    {Staging\\integración\\y smoke};
+  \node[lt/accent, minimum width=2.6cm, minimum height=1.65cm, align=center, right=of stg] (appr)
+    {Aprobación\\producción};
+  \node[lt/dark, minimum width=2.6cm, minimum height=1.65cm, align=center, right=of appr] (prod)
+    {Prod\\canary o\\blue/green};
+  \node[lt/box, minimum width=2.6cm, minimum height=1.65cm, align=center, right=of prod] (obs)
+    {Métricas\\verificar alarmas};
+  \node[lt/box, minimum width=2.6cm, minimum height=1.65cm, align=center, right=of obs] (rb)
+    {Rollback\\si hay alarma};
 
   \draw[lt/arr] (pr) -- (img);
   \draw[lt/arr] (img) -- (scan);
   \draw[lt/arr] (scan) -- (ecr);
   \draw[lt/arr] (ecr) -- (dev);
-  \draw[lt/arr] (dev.south) -- ++(0,-0.38) -| (stg.north);
+  \draw[lt/arr] (dev.south) -- ++(0,-0.42) -| (stg.north);
   \draw[lt/arr] (stg) -- (appr);
   \draw[lt/arr] (appr) -- (prod);
   \draw[lt/arr] (prod) -- (obs);
@@ -522,37 +567,15 @@ Nada de secretos en git ni en \texttt{tfvars} versionados. Secrets Manager y KMS
 \caption{Pipeline: verificación automática hasta staging; producción con aprobación, canary y rollback por alarmas.}
 \end{figure}
 
-Etapas:
-
-\begin{enumerate}
-    \item Commit / pull request.
-    \item Compilación y pruebas unitarias.
-    \item Análisis estático y quality gates.
-    \item Construcción de imagen Docker.
-    \item Escaneo de dependencias e imagen.
-    \item Publicación en ECR.
-    \item Despliegue automático a \texttt{dev}.
-    \item Pruebas de integración y smoke tests.
-    \item Despliegue a \texttt{staging}.
-    \item Aprobación para producción.
-    \item Despliegue canary o blue/green.
-    \item Verificación de métricas y rollback si hay alarma.
-\end{enumerate}
-
 Infraestructura sigue un pipeline paralelo: \texttt{fmt}, \texttt{validate}, \texttt{plan} en el PR y \texttt{apply} controlado por ambiente. Las migraciones de base de datos deben ser compatibles con el código anterior para no romper un canary a medias.
-
-\subsection{Operabilidad}
-
-No se introduce Kubernetes, service mesh ni un segundo stack de observabilidad sin una necesidad concreta. El núcleo es ECS/Fargate, Aurora, SQS, CloudFront, Route~53, Secrets Manager y CloudWatch.
-
-Sí se acepta complejidad donde el negocio la exige: outbox, reconciliación y \textit{home region}. El resto se mantiene deliberadamente simple.
 
 % ============================================================
 \section*{Conclusión}
 \addcontentsline{toc}{section}{Conclusión}
 
-La propuesta no maximiza sofisticación. Busca tres garantías: el checkout no colapsa en un flash crowd, el último asiento se vende una sola vez, y una captura de pago tiene boleto.
-
-La \textit{home region} da una fuente de verdad clara sin un inventario activo-activo global. Outbox, consumidores idempotentes y reconciliación cubren los huecos entre LiveTix y la pasarela. Terraform, ambientes aislados y un pipeline con canary permiten operar esto con un equipo pequeño.
-
+\begin{enumerate}
+    \item La propuesta no maximiza sofisticación. Busca tres garantías: el checkout no colapsa en un flash crowd, un asiento se vende una sola vez y una captura de pago tiene boleto.
+    \item Outbox, consumidores idempotentes y reconciliación cubren los huecos entre LiveTix y la pasarela.
+    \item Terraform, ambientes aislados y un pipeline con canary permiten operar esto con un equipo pequeño.
+\end{enumerate}
 \end{document}
